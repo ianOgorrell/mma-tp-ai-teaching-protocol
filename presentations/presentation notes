@@ -1,0 +1,404 @@
+## Purpose of these notes
+
+These notes are a public companion to the MMA-TP presentation slides. The slide deck was created for a live symposium talk, so many slides are intentionally visual, compressed, and audience-facing. Without the spoken explanation, the slides can feel too shallow or can make MMA-TP look like "just a larger prompt."
+
+These notes provide the missing explanatory layer:
+
+- what each slide was meant to communicate;
+- how the claims connect to the published paper;
+- why the runtime prompt and JSON specification are paired;
+- how MMA-TP differs from ordinary prompt-based steering;
+- how phases, gates, checkpoints, and constraints create a more stable tutoring interaction;
+- how to interpret the real-world screenshots without exposing student data;
+- what MMA-TP does **not** claim.
+
+These notes are not a word-for-word transcript. They are cleaned, public-safe presentation notes reconstructed from the slide deck and presenter annotations.
+
+---
+
+## High-level presentation thesis
+
+Large language models are useful tutors because they can explain, adapt, and respond naturally. The problem is that natural language prompting alone does not reliably preserve instructional structure over long multi-turn sessions. A tutor may drift, reveal answers too early, change pacing across chats, over-explain simple steps, or hallucinate unsupported information.
+
+MMA-TP addresses this at the **interaction level**. It does not fine-tune the model and does not modify model weights. Instead, it pairs:
+
+```text
+engineered runtime prompt
++ structured JSON specification
+```
+
+The runtime prompt tells the model how to interpret its tutoring role. The JSON specification defines the lesson states, transitions, gates, diagnostic signals, and response constraints. Together, they create a persistent structured scaffold that biases the model toward protocol-consistent tutoring behavior.
+
+The goal is not perfect deterministic control. The goal is a practical, reusable protocol for making LLM tutoring more stable, teachable, inspectable, and repeatable across longer sessions.
+
+
+---
+
+
+## Slide 1 - Title
+
+**Slide title:** Modular Multi-State AI Teaching Protocol (MMA-TP)
+
+This opening slide introduces MMA-TP as a published LLM tutoring protocol. The key point to establish immediately is that MMA-TP is not a model, not a fine-tune, and not a single prompt. It is a reusable interaction design framework for structuring how an LLM behaves across a tutoring session.
+
+The presentation should frame MMA-TP as a bridge between two extremes:
+
+1. **Ordinary prompting**, which is flexible but often inconsistent.
+2. **Traditional rule-based tutoring systems**, which are structured but expensive and domain-specific to build.
+
+MMA-TP attempts to preserve much of the flexibility of a general-purpose LLM while adding a more explicit structure around the interaction.
+
+Recommended speaker framing:
+
+> MMA-TP stands for Modular Multi-State AI Teaching Protocol. It is a protocol for turning a general-purpose LLM into a more structured tutor by pairing a runtime prompt with a JSON-based state specification. The goal is to give the model a reusable instructional structure without changing the model itself.
+
+
+---
+
+
+## Slide 2 - The issue and the plain-English solution
+
+**Slide message:** LLMs are increasingly used for education, but their behavior remains inconsistent. MMA-TP changes how the model is guided rather than how the model is built.
+
+This slide should be treated as the accessible summary of the entire paper. Fine-tuning and model retraining exist, but they are often expensive, technically demanding, platform-dependent, and unrealistic for most educators, tutors, small organizations, or independent users. MMA-TP focuses on a more practical layer: the interaction itself.
+
+Important claim boundary:
+
+- MMA-TP does **not** claim to replace fine-tuning.
+- MMA-TP does **not** claim to formally control every model output.
+- MMA-TP does claim that structured interaction design can make tutoring behavior more stable than prompt-only instruction in the evaluated sessions.
+
+Professional version of the core point:
+
+> Instead of asking every educator or small team to fine-tune a model, MMA-TP works at the interaction level. It uses structured instructions, states, gates, and constraints to shape the session while leaving the underlying model unchanged.
+
+The broader use case is education, but the underlying idea is more general. Any repeated workflow with known phases, constraints, and allowed actions can potentially use a similar protocol structure. Examples include onboarding, employee training, guided practice, structured writing workflows, internal process support, documentation assistance, and other rule-governed interactions.
+
+Recommended speaker framing:
+
+> The problem is not that LLMs cannot explain things. The problem is that they do not naturally preserve the structure of a good tutoring session. MMA-TP gives the tutor a persistent lesson architecture so the model is not improvising the entire teaching strategy from scratch every turn.
+
+
+---
+
+
+## Slide 3 - What makes modern LLMs unreliable tutors?
+
+**Slide message:** Five recurring failure modes limit LLMs as tutors: drift, early solution disclosure, inconsistent pacing, overlong responses, and hallucinations.
+
+### 1. Drift
+
+Drift is one of the main problems MMA-TP tries to address. In ordinary prompting, the initial prompt can strongly shape the early interaction, but as the session grows, the model must attend to more user messages, model responses, examples, corrections, and side conversations. Even when the original prompt remains technically present in the context window, its practical influence can weaken as the surrounding context becomes more complex.
+
+A useful public-safe analogy:
+
+> A large prompt can be like a strong flavor at the beginning of a drink. At first, it dominates. But as the interaction continues and more context is added, the original flavor can become diluted by everything else in the conversation.
+
+The point is not that the model "forgets" in a human sense. The point is that next-token generation is conditioned by the whole active context, and the prompt must compete with every other token in that context.
+
+### 2. Early solution disclosure
+
+LLMs often optimize for being helpful by solving the problem quickly. That is useful for many tasks, but it can be harmful in tutoring. A student often needs guided struggle, attempts, feedback, and correction before seeing a complete solution. If the model gives the answer too early, it may reduce the opportunity for retrieval practice, error correction, and genuine understanding.
+
+MMA-TP addresses this by making certain responses unavailable until a learner attempt or gate condition has been satisfied.
+
+Professional phrasing:
+
+> A tutor should not always optimize for the fastest answer. In many learning contexts, the correct behavior is to delay the full solution until the learner has attempted the required step.
+
+### 3. Pacing and behavior vary across chats
+
+A markdown file or static source document can contain the information a tutor needs, but it does not necessarily encode the **interaction behavior** required to teach that information consistently. Two chats using the same source may still differ in pacing, tone, sequence, strictness, and remediation style.
+
+MMA-TP separates information from behavior. The JSON specification defines not only what content is relevant, but how the tutor should move through the lesson: which phase comes next, what the learner must do, what counts as a pass, and what happens if the learner is wrong or incomplete.
+
+### 4. Overlong or essay-style responses
+
+LLMs often produce longer explanations than the learner needs. This is partly because, without strong constraints, the model has many plausible continuations that sound helpful: definitions, caveats, examples, summaries, and extra context. In tutoring, more text is not always better. Sometimes the correct response is a short hint, a single question, or a narrow correction.
+
+MMA-TP can restrict response type by phase. For example, a practice phase may allow only a short hint or a targeted question, while a review phase may allow a fuller explanation.
+
+### 5. Hallucinations
+
+Hallucinations are especially damaging in instructional settings because a single unsupported explanation can mislead a learner and contaminate the rest of the session. MMA-TP does not eliminate hallucinations, but structured lesson constraints, source grounding, phase separation, and explicit response limits reduce the amount of open-ended improvisation the model must perform.
+
+Recommended speaker framing:
+
+> These five issues are not random annoyances. They all come from the same underlying problem: the model is flexible, but the tutoring interaction is under-structured. MMA-TP adds structure without removing flexibility.
+
+
+---
+
+
+## Slide 4 - What is MMA-TP?
+
+**Slide message:** MMA-TP is the combination of a runtime prompt and a JSON specification.
+
+This slide introduces the most important conceptual distinction in the presentation:
+
+```text
+Prompt = how the tutor should interpret and behave
+JSON = what states, gates, transitions, and constraints define the lesson
+MMA-TP = prompt + JSON working together as a tutoring protocol
+```
+
+The runtime prompt acts like the tutor's operating posture. It defines the role, response discipline, constraint-following expectations, and general tutoring style. The JSON specification acts like a lightweight control program. It defines the lesson phases, allowed transitions, checkpoints, diagnostic tags, pass/fail conditions, and prohibited responses.
+
+A key advantage is that the same JSON specification can be paired with different runtime prompts for different learners. For example:
+
+- a beginner who needs slower pacing;
+- a returning student who needs review;
+- a student with limited English proficiency;
+- a student preparing for an exam;
+- an employee learning a structured workflow.
+
+The lesson structure can remain stable while the explanation style changes.
+
+Recommended speaker framing:
+
+> MMA-TP is not just adding more instructions. It separates the tutor's personality and response discipline from the lesson's state logic. The prompt tells the model how to act. The JSON tells it where it is in the lesson and what is allowed to happen next.
+
+
+---
+
+
+## Slide 5 - How LLMs generate their next response
+
+**Slide message:** The presentation simplifies next-token generation into three steps: read active context, calculate what matters, generate the next token, repeat.
+
+This slide is intentionally simplified for a mixed audience. The purpose is not to teach transformer internals in full detail. The purpose is to explain why persistent structure in the context can shape behavior.
+
+### Step 1: Read active context window
+
+The model conditions its next token on the active context window: the tokens from the current conversation and any system, developer, or instruction context available to it. The model does not remember in the human sense during a stateless call; it generates from the context it can currently see.
+
+If the context window fills, earlier tokens may be truncated or summarized depending on the platform. Even before truncation, the practical influence of an early instruction can weaken as more competing context accumulates.
+
+### Step 2: Calculate what matters
+
+Internally, transformer-based models represent tokens as numerical vectors and use attention mechanisms to relate tokens to one another. This allows the model to weigh patterns, relationships, and prior instructions when predicting the next token.
+
+For presentation purposes, this can be described as:
+
+> The model breaks the conversation into tokens, represents them mathematically, and uses learned patterns to estimate what token is most likely or appropriate next.
+
+This is not random text generation in the everyday sense, but it is probabilistic. The output is conditioned by the entire context and by the model's learned distribution.
+
+### Step 3: Generate next token and repeat
+
+The model generates one token at a time. Each generated token becomes part of the context for the next token. That means the model's own prior responses also influence future behavior.
+
+This is why MMA-TP's repeated structure matters. If the tutor continually says things like "we are in this phase," "this gate is not passed," or "the next allowed action is practice," those protocol-consistent statements become part of the context and reinforce the interaction structure over time.
+
+Recommended speaker framing:
+
+> The model is not writing a complete answer and then checking it like a human essay. It is repeatedly predicting the next token from the current context. MMA-TP works by making the protocol structure a persistent, repeated part of that context.
+
+
+---
+
+
+## Slide 6 - Is MMA-TP just a fancy prompt?
+
+**Slide message:** No. A large prompt is a block of instructions. MMA-TP is a structured interaction scaffold with phases, gates, transitions, and constraints that continue to shape the session.
+
+This slide is the conceptual center of the presentation.
+
+A large prompt can guide early behavior, but it is still mostly natural language instruction. It may describe what the tutor should do, but it does not necessarily create a reusable state structure that the tutor must continually reference.
+
+MMA-TP changes the interaction pattern by adding:
+
+- named states;
+- gate conditions;
+- pass/fail transitions;
+- allowed and prohibited responses;
+- diagnostic tags;
+- remediation rules;
+- phase-specific response limits.
+
+As the tutor moves through the lesson, it repeatedly references the structure. Those repeated references become additional context that reinforces the protocol. The model is not only influenced by the original prompt; it is also influenced by its own protocol-consistent behavior across the session.
+
+Professional version of the core idea:
+
+> A prompt tells the model what kind of tutor to be. MMA-TP gives the tutor a persistent interaction map and requires it to keep locating the learner inside that map.
+
+This is why MMA-TP can sometimes preserve behavioral structure even after the original prompt is no longer the dominant part of the visible conversation. The session itself becomes saturated with state labels, gate decisions, constraint language, and structured transitions.
+
+Important claim boundary:
+
+- This is not a mathematical guarantee.
+- This is not formal runtime enforcement.
+- It is structured contextual conditioning.
+
+Recommended speaker framing:
+
+> The difference is that MMA-TP does not rely on a single instruction staying powerful forever. It creates a repeated behavioral loop. Every time the tutor checks a gate, refuses a shortcut, gives a phase-specific hint, or explains the next step, it reintroduces the protocol back into the context.
+
+
+---
+
+
+## Slide 7 - Phase diagram
+
+**Slide message:** The phase diagram shows how an MMA-TP tutor moves through states, checks conditions, and either redirects the learner or advances the interaction.
+
+The diagram can be read as a loop:
+
+1. The learner sends a message or request.
+2. The current state determines what kind of response is allowed.
+3. A constraint filter checks whether the learner's request is permitted.
+4. A gate check determines whether the learner has completed the required condition.
+5. If the learner has not passed the gate, the tutor redirects, gives a constrained hint, or asks for the required attempt.
+6. If the learner passes the gate, the tutor transitions to the next allowed state.
+7. The tutor gives a behavioral anchor that explains what happened and what comes next.
+
+The important part is the behavioral anchor. The tutor does not simply say "wrong" or "correct." It explains the state relationship:
+
+```text
+We cannot move on yet because this checkpoint requires X.
+You are currently in Y phase.
+Complete Z first, then we can advance.
+```
+
+Or:
+
+```text
+Correct. You satisfied the condition for this checkpoint.
+We can now move from this practice phase to the next phase.
+```
+
+This keeps the model repeatedly referencing the JSON specification and reinforces the lesson structure in the conversation.
+
+Recommended speaker framing:
+
+> The phase diagram is where MMA-TP becomes more than instruction text. Each state has rules, each gate has a condition, and each transition has a reason. The tutor is not just answering; it is locating the learner in the protocol.
+
+
+---
+
+
+## Slide 8 - Empirical results
+
+**Slide message:** MMA-TP was evaluated against prompt-only tutoring baselines across 50 sessions.
+
+The published paper reports an evaluation across five instructional tasks:
+
+- Python for-loops;
+- Java if/else conditionals;
+- web application fundamentals;
+- C++ functions;
+- operating systems review.
+
+For each task, five MMA-TP sessions and five prompt-only baseline sessions were conducted, producing 50 total sessions: 25 MMA-TP and 25 prompt-only.
+
+The evaluation focused on structural behavior, not student learning outcomes. The measured behavioral categories included:
+
+- premature solution disclosure;
+- phase order violations;
+- structural collapse.
+
+Published results summarized:
+
+- MMA-TP showed no premature solution disclosure across 25 evaluated sessions.
+- Prompt-only baselines disclosed solutions prematurely in 19 of 25 sessions.
+- MMA-TP preserved declared phase order and guardrail enforcement in 23 of 25 sessions.
+- No MMA-TP session exhibited full structural collapse.
+
+The two observed MMA-TP deviations should be framed carefully. They did not represent total protocol failure. One involved pre-existing platform/account-level conditioning, and another required sustained attempts to override the protocol. In both cases, the overall checkpoint structure remained present.
+
+Recommended speaker framing:
+
+> These results do not prove that MMA-TP makes LLM tutoring perfect. They show that, in the tested sessions, structured prompt/specification pairing preserved tutoring structure more reliably than prompt-only instruction.
+
+
+---
+
+
+## Slide 9 - How it looks in the real world
+
+**Slide message:** MMA-TP was used to create structured tutor flows in real tutoring contexts, including GPT project-style tutor branches and guided gate-check behavior.
+
+This slide shows practical examples rather than formal evaluation data. The key message is that MMA-TP can be turned into actual tutor packages that students interact with.
+
+The left screenshot represents a structured tutoring setup where multiple topic-specific tutor chats were organized inside a project-style workspace. Each branch can begin from a runtime prompt and JSON specification, letting the student work through a topic while preserving a consistent tutoring flow.
+
+The middle example shows a learner giving an answer that is partially correct but incomplete. Instead of simply accepting or rejecting the answer, the tutor recognizes the correct direction, gives positive feedback, and then asks for refinement before allowing the learner to pass the gate.
+
+The right example shows a student trying to skip a checkpoint. The tutor refuses to skip the required step, but does so gently. It explains that the checkpoint is part of the JSON-defined lesson structure and offers a smaller, easier version of the required step.
+
+This is one of the clearest practical benefits of MMA-TP: the tutor can be strict about structure without becoming hostile or unhelpful.
+
+Recommended speaker framing:
+
+> In practice, MMA-TP is not only about blocking the student. It is about preserving the learning sequence while still being supportive. If the learner is wrong, the tutor redirects. If the learner is overwhelmed, the tutor can shrink the step. But it should not silently abandon the checkpoint.
+
+Privacy note:
+
+Public examples should remain sanitized. Student names, private conversations, grades, and identifiable academic details should not be included in this repository.
+
+
+---
+
+
+## Slide 10 - Thank you / close
+
+**Slide message:** Close the presentation and direct readers to the published paper.
+
+The closing should reinforce three points:
+
+1. MMA-TP is a lightweight protocol-level approach, not a model modification.
+2. Its main contribution is structured interaction control through prompt/specification pairing.
+3. The work is reusable beyond one subject because the protocol separates lesson structure from topic content.
+
+Recommended closing:
+
+> MMA-TP is my attempt to make LLM tutoring more structured without making it rigid. It keeps the flexibility of natural language interaction, but adds a reusable state-and-gate framework so the tutor can preserve pacing, checkpoints, and response boundaries across longer sessions.
+
+---
+
+## Suggested short presentation abstract
+
+MMA-TP is a published protocol-level framework for structuring multi-turn LLM tutoring interactions. Rather than modifying model weights or fine-tuning the model, MMA-TP pairs an engineered runtime prompt with a JSON-based state specification that defines phases, transitions, gates, diagnostic signals, and response constraints. The protocol is designed to reduce drift, premature answer disclosure, inconsistent pacing, and loss of instructional structure. In the published evaluation, MMA-TP was compared against prompt-only tutoring baselines across 50 sessions and showed stronger preservation of phase order, guardrails, and checkpoint structure in the tested interactions.
+
+---
+
+## Suggested GitHub description
+
+```text
+Presentation notes for MMA-TP, a published LLM tutoring protocol using runtime prompts, JSON state specifications, gated checkpoints, and structured interaction design.
+```
+
+---
+
+## Claim boundaries for this presentation
+
+### Safe claims
+
+- MMA-TP is a published protocol-level framework.
+- It pairs an engineered runtime prompt with a JSON state specification.
+- It operates at the interaction level without model modification.
+- It uses states, gates, transitions, diagnostic signals, and response constraints.
+- It was evaluated against prompt-only tutoring baselines across 50 sessions in the paper.
+- The evaluation showed stronger structural stability in the tested sessions.
+
+### Careful claims
+
+- "Control" should be understood as interaction-level behavioral constraint/conditioning, not formal deterministic control.
+- "Enforcement" is acceptable when discussing declared protocol constraints in the evaluated sessions, but it should not imply mathematical guarantees.
+- Real-world tutoring screenshots should be described as examples or case-study context, not formal student-outcome evidence.
+
+### Avoid claiming
+
+- perfect LLM behavior;
+- guaranteed correctness;
+- measured learning gains;
+- model fine-tuning;
+- production deployment;
+- replacement of human teachers;
+- disclosure of private student data.
+
+---
+
+## Public repository note
+
+This presentation folder should include the PDF/PPTX deck and these notes. It should not include raw tutoring logs, student names, grades, private classroom materials, or identifiable student conversations.
