@@ -1,5 +1,5 @@
 
-# Protocol Core
+# Protocol Core Templates
 
 This folder contains the reusable core components of the Modular Multi-State AI Teaching Protocol (MMA-TP).
 
